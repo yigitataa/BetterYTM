@@ -196,6 +196,9 @@ importers:
       '@better-ytm/theme-engine':
         specifier: workspace:*
         version: link:../../packages/theme-engine
+      '@better-ytm/ytm-adapter':
+        specifier: workspace:*
+        version: link:../../packages/ytm-adapter
     devDependencies:
       '@types/chrome':
         specifier: ^0.1.32
@@ -224,6 +227,12 @@ importers:
         version: 3.25.76
 
   packages/theme-engine:
+    dependencies:
+      '@better-ytm/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/ytm-adapter:
     dependencies:
       '@better-ytm/shared':
         specifier: workspace:*

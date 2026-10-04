@@ -1,30 +1,60 @@
 import { SETTINGS_STORAGE_KEY } from '@better-ytm/shared';
 import { applyTheme, resolveTheme, type AppliedTheme } from '@better-ytm/theme-engine';
+import { createYTMAdapter, type YTMAdapter } from '@better-ytm/ytm-adapter';
 import { settings } from '../settings/client.js';
+
+declare global {
+  interface Window {
+    /** Isolated-world diagnostic API; never bridged into the host page. */
+    betterYtmAdapter?: YTMAdapter;
+    betterYtmRuntimeDispose?: () => void;
+  }
+}
+
+window.betterYtmRuntimeDispose?.();
+window.betterYtmAdapter?.destroy();
+const adapter = createYTMAdapter(document);
+window.betterYtmAdapter = adapter;
 
 let applied: AppliedTheme | undefined;
 let disposed = false;
 let pageActive = true;
 let revision = 0;
+let unsubscribeRuntime: (() => void) | undefined;
+
+function stopEnhancements() {
+  unsubscribeRuntime?.();
+  unsubscribeRuntime = undefined;
+  adapter.destroy();
+  applied?.dispose();
+  applied = undefined;
+}
 
 async function refresh() {
   const currentRevision = ++revision;
   const result = await settings.load();
   if (disposed || !pageActive || currentRevision !== revision) return;
   if (!result.ok) {
-    applied?.dispose();
-    applied = undefined;
-    console.error('[Better YTM] Settings unavailable; theme removed:', result.error);
+    stopEnhancements();
+    console.error('[Better YTM] Settings unavailable; enhancements disabled:', result.error);
     return;
   }
   if (result.state.diagnostics.length) {
     console.warn('[Better YTM] Settings diagnostics:', result.state.diagnostics);
   }
   if (!result.state.settings.enabled) {
-    applied?.dispose();
-    applied = undefined;
+    stopEnhancements();
     return;
   }
+  if (!unsubscribeRuntime) {
+    unsubscribeRuntime = adapter.subscribe(() => {
+      // Chrome invalidates the old content-script context after extension reload.
+      // Stop it on the next host event, or immediately on same-world reinjection.
+      if (!chrome.runtime.id) dispose();
+    });
+  }
+  adapter.initialize();
+  if (disposed || !pageActive || currentRevision !== revision) return;
   try {
     const theme = resolveTheme(result.state.settings.theme);
     if (applied) applied.update(theme);
@@ -46,19 +76,25 @@ function dispose() {
   if (disposed) return;
   disposed = true;
   revision++;
-  chrome.storage.onChanged.removeListener(onStorageChange);
+  stopEnhancements();
+  try {
+    chrome.storage.onChanged.removeListener(onStorageChange);
+  } catch {
+    console.info(
+      '[Better YTM] Chrome context invalidated; page enhancements have been cleaned up.',
+    );
+  }
   window.removeEventListener('pagehide', onPageHide);
   window.removeEventListener('pageshow', onPageShow);
-  applied?.dispose();
-  applied = undefined;
+  if (window.betterYtmAdapter === adapter) delete window.betterYtmAdapter;
+  if (window.betterYtmRuntimeDispose === dispose) delete window.betterYtmRuntimeDispose;
 }
 
 function onPageHide(event: PageTransitionEvent) {
   if (event.persisted) {
     pageActive = false;
     revision++;
-    applied?.dispose();
-    applied = undefined;
+    stopEnhancements();
   } else dispose();
 }
 
@@ -72,4 +108,5 @@ function onPageShow(event: PageTransitionEvent) {
 chrome.storage.onChanged.addListener(onStorageChange);
 window.addEventListener('pagehide', onPageHide);
 window.addEventListener('pageshow', onPageShow);
+window.betterYtmRuntimeDispose = dispose;
 void refresh();

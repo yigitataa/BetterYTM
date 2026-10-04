@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@better-ytm/shared": "workspace:*",
-    "@better-ytm/theme-engine": "workspace:*"
+    "@better-ytm/theme-engine": "workspace:*",
+    "@better-ytm/ytm-adapter": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.32",
