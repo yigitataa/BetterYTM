@@ -16,6 +16,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
+    "test:unit": "pnpm --filter @better-ytm/shared --filter @better-ytm/theme-engine build && node --test tests/foundation.test.mjs",
     "start:server": "pnpm --filter @better-ytm/server start"
   },
   "devDependencies": {

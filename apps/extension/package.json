@@ -8,6 +8,10 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@better-ytm/shared": "workspace:*",
+    "@better-ytm/theme-engine": "workspace:*"
+  },
   "devDependencies": {
     "@types/chrome": "^0.1.32",
     "esbuild": "^0.28.2"

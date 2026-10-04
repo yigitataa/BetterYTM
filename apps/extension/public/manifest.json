@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "description": "The foundation for a more personal YouTube Music experience.",
   "minimum_chrome_version": "111",
+  "permissions": ["storage"],
   "background": {
     "service_worker": "background.js"
   },

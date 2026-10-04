@@ -29,6 +29,7 @@ const options = {
   },
   outdir,
   bundle: true,
+  conditions: ['source'],
   splitting: false,
   format: 'iife',
   platform: 'browser',
