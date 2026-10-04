@@ -1,0 +1,9 @@
+node_modules/
+**/dist/
+.pnpm-store/
+pnpm-lock.yaml
+prototype/
+AGENTS.md
+CODEX_MASTER_PROMPT.md
+MASTER_PROJECT_BLUEPRINT.md
+02_UI_UX_SPEC.md

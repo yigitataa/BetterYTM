@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Better YTM",
+  "version": "0.0.1",
+  "description": "The foundation for a more personal YouTube Music experience.",
+  "minimum_chrome_version": "111",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://music.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "world": "ISOLATED"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
