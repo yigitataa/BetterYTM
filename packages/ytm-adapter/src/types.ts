@@ -65,6 +65,11 @@ export type YTMEvent =
     }
   | { readonly type: 'healthchange'; readonly health: AdapterHealth };
 
+export interface CompactNavigationOptions {
+  /** Extension-owned UI action. Host elements stay inside the adapter. */
+  readonly onListenTogether?: () => void;
+}
+
 export interface YTMAdapter {
   initialize(): void;
   destroy(): void;
@@ -89,7 +94,7 @@ export interface YTMAdapter {
   disableVisualGlass(): void;
   getVisualGlassHealth(): GlassBindingHealth;
   /** User-requested header shortcuts and playlist-only native guide. */
-  enableCompactNavigation(): AdapterResult;
+  enableCompactNavigation(options?: CompactNavigationOptions): AdapterResult;
   disableCompactNavigation(): void;
   /** Manual diagnostics only; no automatic layout probing. */
   captureLayout(): LayoutSnapshot;

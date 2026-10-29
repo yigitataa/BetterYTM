@@ -1,5 +1,6 @@
 import { NAVIGATION_SELECTORS as host } from './selectors.js';
 import { COMPACT_NAVIGATION_CSS } from './navigation-styles.js';
+import type { CompactNavigationOptions } from './types.js';
 
 const destinations = [
   {
@@ -35,7 +36,7 @@ export function navigationDestination(label: string): Destination | undefined {
   return destinations.find(({ labels }) => (labels as readonly string[]).includes(normalized));
 }
 
-export function bindCompactNavigation(document: Document) {
+export function bindCompactNavigation(document: Document, options: CompactNavigationOptions = {}) {
   const view = document.defaultView;
   if (!view) throw new Error('Navigation needs the host window.');
   const root = document.documentElement;
@@ -56,6 +57,31 @@ export function bindCompactNavigation(document: Document) {
   let startupDone = false;
   let closedOnStartup = false;
   let userInteracted = false;
+  let currentOptions = options;
+  const together = document.createElement('button');
+  together.type = 'button';
+  together.dataset.bytmDestination = 'listen-together';
+  together.title = 'Birlikte Dinle';
+  together.setAttribute('aria-label', 'Birlikte Dinle');
+  together.setAttribute('aria-haspopup', 'dialog');
+  // Material Design "groups", matching the existing filled 24px navigation icons.
+  const togetherIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  togetherIcon.setAttribute('viewBox', '0 0 24 24');
+  togetherIcon.setAttribute('aria-hidden', 'true');
+  const togetherPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  togetherPath.setAttribute(
+    'd',
+    'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3ZM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z',
+  );
+  togetherIcon.append(togetherPath);
+  together.append(togetherIcon);
+  together.addEventListener('click', () => currentOptions.onListenTogether?.());
+
+  function updateOptions(next: CompactNavigationOptions) {
+    currentOptions = next;
+    if (next.onListenTogether) toolbar.append(together);
+    else together.remove();
+  }
 
   function nativeEntries() {
     const entries = new Map<string, HTMLElement>();
@@ -89,6 +115,7 @@ export function bindCompactNavigation(document: Document) {
     links.set(destination.id, link);
     toolbar.append(link);
   }
+  updateOptions(options);
 
   const scoped = new view.MutationObserver((records) => {
     if (
@@ -233,5 +260,5 @@ export function bindCompactNavigation(document: Document) {
     dispose();
     throw error;
   }
-  return { dispose };
+  return { dispose, updateOptions };
 }

@@ -14,6 +14,7 @@ import type {
   AdapterDiagnostic,
   AdapterHealth,
   AdapterResult,
+  CompactNavigationOptions,
   YTMAdapter,
   YTMEvent,
 } from './types.js';
@@ -382,11 +383,14 @@ class DOMYTMAdapter implements YTMAdapter {
       );
     }
   }
-  enableCompactNavigation(): AdapterResult {
+  enableCompactNavigation(options: CompactNavigationOptions = {}): AdapterResult {
     if (!this.#initialized) return this.#inactive();
-    if (this.#navigation) return { ok: true };
+    if (this.#navigation) {
+      this.#navigation.updateOptions(options);
+      return { ok: true };
+    }
     try {
-      this.#navigation = bindCompactNavigation(this.#document);
+      this.#navigation = bindCompactNavigation(this.#document, options);
       return { ok: true };
     } catch {
       return failure(

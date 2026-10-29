@@ -11,6 +11,7 @@ import {
 import { createYTMAdapter, type YTMAdapter } from '@better-ytm/ytm-adapter';
 import { settings } from '../settings/client.js';
 import { createLayoutDiagnostics } from './layout-diagnostics.js';
+import { createListenTogetherPage } from '../listen-together/page.js';
 
 declare global {
   interface Window {
@@ -25,6 +26,7 @@ window.betterYtmRuntimeDispose?.();
 window.betterYtmAdapter?.destroy();
 const adapter = createYTMAdapter(document);
 window.betterYtmAdapter = adapter;
+const listenTogether = createListenTogetherPage(document, adapter);
 
 const stylesheet = adapter.getVisualSkinStyleSheet(VISUAL_SKIN_RULES);
 let applied: AppliedVisualSkin | undefined;
@@ -44,6 +46,7 @@ const layoutDiagnostics = createLayoutDiagnostics(
 window.betterYtmLayout = layoutDiagnostics;
 
 function stopEnhancements() {
+  listenTogether.dispose();
   layoutDiagnostics.cancel();
   unsubscribeRuntime?.();
   unsubscribeRuntime = undefined;
@@ -103,7 +106,7 @@ async function refresh() {
     const visualTheme = themeWithArtwork(theme, artworkPalette);
     if (applied) applied.update(visualTheme);
     else applied = applyVisualSkin(document, visualTheme, stylesheet);
-    const navigation = adapter.enableCompactNavigation();
+    const navigation = adapter.enableCompactNavigation({ onListenTogether: listenTogether.open });
     if (!navigation.ok)
       console.warn('[Better YTM] Compact navigation unavailable:', navigation.error);
     if (theme.config.artworkAccent) {
@@ -119,6 +122,7 @@ async function refresh() {
     } else adapter.disableVisualGlass();
     console.info(`[Better YTM] Visual skin ready: ${theme.name}.`);
   } catch (error) {
+    listenTogether.dispose();
     artwork?.dispose();
     artwork = undefined;
     artworkPalette = null;

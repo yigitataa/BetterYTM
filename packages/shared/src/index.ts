@@ -7,3 +7,4 @@ export * from './theme.js';
 export * from './settings.js';
 export * from './playback.js';
 export * from './visual.js';
+export * from './room.js';
