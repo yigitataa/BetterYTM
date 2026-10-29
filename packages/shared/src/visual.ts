@@ -16,6 +16,7 @@ export type VisualTarget =
   | 'suggestion'
   | 'content'
   | 'browseBackground'
+  | 'browseArtworkBackground'
   | 'card'
   | 'cardArtwork'
   | 'cardDetails'
@@ -49,7 +50,8 @@ export type PaintProperty =
   | 'outline-offset'
   | 'fill'
   | 'stroke'
-  | 'accent-color';
+  | 'accent-color'
+  | 'opacity';
 
 export type PaintDeclarations = Readonly<Partial<Record<PaintProperty, string>>>;
 export type GlassTarget = 'navigation' | 'sidebarContent' | 'player';

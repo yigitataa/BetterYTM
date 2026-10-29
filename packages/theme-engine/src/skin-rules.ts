@@ -135,6 +135,11 @@ export const VISUAL_SKIN_RULES: readonly VisualRule[] = [
     important: ['background-color', 'background-image', 'box-shadow'],
   },
   {
+    target: 'browseArtworkBackground',
+    declarations: { opacity: '0' },
+    important: ['opacity'],
+  },
+  {
     target: 'card',
     declarations: {
       'background-color': 'transparent',

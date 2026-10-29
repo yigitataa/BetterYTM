@@ -103,6 +103,9 @@ async function refresh() {
     const visualTheme = themeWithArtwork(theme, artworkPalette);
     if (applied) applied.update(visualTheme);
     else applied = applyVisualSkin(document, visualTheme, stylesheet);
+    const navigation = adapter.enableCompactNavigation();
+    if (!navigation.ok)
+      console.warn('[Better YTM] Compact navigation unavailable:', navigation.error);
     if (theme.config.artworkAccent) {
       artwork ??= observeArtworkPalette(document, (palette) => {
         artworkPalette = palette;
@@ -120,6 +123,7 @@ async function refresh() {
     artwork = undefined;
     artworkPalette = null;
     adapter.disableVisualGlass();
+    adapter.disableCompactNavigation();
     applied?.dispose();
     applied = undefined;
     console.error('[Better YTM] Theme unavailable; enhancement disabled:', error);

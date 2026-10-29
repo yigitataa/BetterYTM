@@ -26,6 +26,7 @@ export const PAINT_PROPERTIES: readonly PaintProperty[] = [
   'fill',
   'stroke',
   'accent-color',
+  'opacity',
 ];
 
 /** Runtime allowlist: a future rule cannot accidentally add layout declarations. */
@@ -44,6 +45,8 @@ export function compileVisualSkin(rules: readonly VisualRule[]): string {
       if (!PAINT_PROPERTIES.includes(property))
         throw new Error('Only paint properties can be important.');
     const declarations = Object.entries(rule.declarations).map(([property, value]) => {
+      if (property === 'opacity' && (rule.target !== 'browseArtworkBackground' || value !== '0'))
+        throw new Error('Opacity is reserved for decorative browse backgrounds.');
       if (!PAINT_PROPERTIES.includes(property as PaintProperty))
         throw new Error(`Non-paint property rejected: ${property}`);
       if (typeof value !== 'string' || /[;{}]|url\s*\(|!important/i.test(value))

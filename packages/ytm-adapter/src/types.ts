@@ -88,6 +88,9 @@ export interface YTMAdapter {
   enableVisualGlass(): AdapterResult;
   disableVisualGlass(): void;
   getVisualGlassHealth(): GlassBindingHealth;
+  /** User-requested header shortcuts and playlist-only native guide. */
+  enableCompactNavigation(): AdapterResult;
+  disableCompactNavigation(): void;
   /** Manual diagnostics only; no automatic layout probing. */
   captureLayout(): LayoutSnapshot;
 }

@@ -21,12 +21,20 @@ export const VISUAL_SELECTORS: Readonly<Record<VisualTarget, readonly string[]>>
   searchInput: ['ytmusic-search-box input#input'],
   suggestions: ['ytmusic-search-suggestions-section'],
   suggestion: ['ytmusic-search-suggestion'],
-  content: ['ytmusic-app-layout #content[role="main"]'],
+  content: ['ytmusic-app-layout > #content', 'ytmusic-app-layout #content[role="main"]'],
   // Both direct children are present in the captured native browse template.
   // Clearing only the gradient leaves a finite-height immersive image/color slab.
   browseBackground: [
     'ytmusic-browse-response > .background-gradient',
     'ytmusic-browse-response > #background.immersive-background',
+    'ytmusic-immersive-carousel-shelf-renderer > .background-gradient',
+    'ytmusic-card-shelf-renderer .card-container > #background.immersive-background',
+  ],
+  // These nodes contain decorative fullbleed images, never card covers or controls.
+  browseArtworkBackground: [
+    'ytmusic-browse-response > #background.immersive-background',
+    'ytmusic-immersive-carousel-shelf-renderer > ytmusic-fullbleed-thumbnail-renderer.immersive-background',
+    'ytmusic-card-shelf-renderer .card-container > #background.immersive-background',
   ],
   card: ['ytmusic-two-row-item-renderer'],
   cardArtwork: ['ytmusic-two-row-item-renderer a.image-wrapper'],
@@ -45,6 +53,27 @@ export const VISUAL_SELECTORS: Readonly<Record<VisualTarget, readonly string[]>>
   volume: ['ytmusic-miniplayer input#slider.ytSliderShapeVerticalSlider'],
   keyboardFocus: ['ytmusic-app :focus-visible'],
 };
+
+/** Native navigation shape verified in the captured app templates. */
+export const NAVIGATION_SELECTORS = {
+  app: 'ytmusic-app',
+  bar: 'ytmusic-nav-bar',
+  search: 'ytmusic-nav-bar .center-content > ytmusic-search-box',
+  toggle: 'ytmusic-nav-bar #guide-button',
+  drawer: 'tp-yt-app-drawer#guide',
+  guide: '#guide-content ytmusic-guide-renderer',
+  primary: '#guide-content ytmusic-guide-entry-renderer[is-primary]',
+  title: '.title',
+  item: 'tp-yt-paper-item',
+  center: 'ytmusic-nav-bar .center-content',
+  headerLeft: 'ytmusic-nav-bar .left-content',
+  headerRight: 'ytmusic-nav-bar .right-content',
+  primarySections: '#guide-content ytmusic-guide-section-renderer[is-primary]',
+  guideButtons: '#guide-content ytmusic-guide-section-renderer > #buttons',
+  guidePromo: '#guide-content ytmusic-guide-signin-promo-renderer',
+  miniGuide: 'ytmusic-app #mini-guide',
+  miniBackground: 'ytmusic-app-layout #mini-guide-background',
+} as const;
 
 export const GLASS_ATTRIBUTE = 'data-bytm-glass';
 export const GLASS_VALUE = 'phase-3';

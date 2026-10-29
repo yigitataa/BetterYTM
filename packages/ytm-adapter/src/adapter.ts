@@ -1,6 +1,7 @@
 import type { PlaybackSnapshot, TrackMetadata } from '@better-ytm/shared';
 import { createLayoutCapture } from './layout.js';
 import { bindVisualGlass } from './visual-glass.js';
+import { bindCompactNavigation } from './navigation.js';
 import { compileVisualSkin } from './visual-styles.js';
 import type { VisualRule } from '@better-ytm/shared';
 import { createDiagnosticReporter, emptyCapabilities, healthSignature } from './diagnostics.js';
@@ -39,6 +40,7 @@ class DOMYTMAdapter implements YTMAdapter {
   #listeners = new Set<{ listener: (event: YTMEvent) => void }>();
   #epoch = 0;
   #glass: ReturnType<typeof bindVisualGlass> | undefined;
+  #navigation: ReturnType<typeof bindCompactNavigation> | undefined;
   #captureLayout: ReturnType<typeof createLayoutCapture>;
   #reporter = createDiagnosticReporter();
   #previous: PlaybackSnapshot | null = null;
@@ -74,6 +76,7 @@ class DOMYTMAdapter implements YTMAdapter {
   destroy() {
     this.#initialized = false;
     this.disableVisualGlass();
+    this.disableCompactNavigation();
     this.#epoch++;
     this.#observation?.stop();
     this.#observation = undefined;
@@ -378,6 +381,23 @@ class DOMYTMAdapter implements YTMAdapter {
         'Decorative blur unavailable; paint-only surfaces remain usable.',
       );
     }
+  }
+  enableCompactNavigation(): AdapterResult {
+    if (!this.#initialized) return this.#inactive();
+    if (this.#navigation) return { ok: true };
+    try {
+      this.#navigation = bindCompactNavigation(this.#document);
+      return { ok: true };
+    } catch {
+      return failure(
+        'host-error',
+        'Compact navigation unavailable; native navigation remains available.',
+      );
+    }
+  }
+  disableCompactNavigation() {
+    this.#navigation?.dispose();
+    this.#navigation = undefined;
   }
   getVisualGlassHealth() {
     return this.#glass?.getHealth() ?? { enabled: false, eligible: [], skipped: {} };
