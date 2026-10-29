@@ -143,3 +143,10 @@ test('identity observation survives missing media and does not double count medi
     ['metadatachange', 'snapshot'],
   );
 });
+
+test('track end is a distinct event before native autoplay can replace the song', () => {
+  const ended = { ...snapshot, ended: true, playing: false, positionMs: snapshot.durationMs };
+  const events = changedPlaybackEvents(snapshot, ended);
+  assert.ok(events.includes('ended'));
+  assert.ok(!changedPlaybackEvents(ended, ended).includes('ended'));
+});

@@ -68,7 +68,15 @@ export function observePlayer(document: Document, refresh: (causes: ReadonlySet<
   });
   structural.observe(document.documentElement, { childList: true, subtree: true });
 
-  const onMediaEvent = (event: Event) => schedule(event.type);
+  const onMediaEvent = (event: Event) => {
+    if (event.type === 'ended') {
+      // Capture the end before native autoplay replaces the track.
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+      causes.clear();
+      refresh(new Set(['ended']));
+    } else schedule(event.type);
+  };
   return {
     bind(
       nextMediaRoot: Element | null,

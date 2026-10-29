@@ -11,6 +11,7 @@ import {
 import { createYTMAdapter, type YTMAdapter } from '@better-ytm/ytm-adapter';
 import { settings } from '../settings/client.js';
 import { createLayoutDiagnostics } from './layout-diagnostics.js';
+import { createRoomController } from '../listen-together/controller.js';
 import { createListenTogetherPage } from '../listen-together/page.js';
 
 declare global {
@@ -26,7 +27,8 @@ window.betterYtmRuntimeDispose?.();
 window.betterYtmAdapter?.destroy();
 const adapter = createYTMAdapter(document);
 window.betterYtmAdapter = adapter;
-const listenTogether = createListenTogetherPage(document, adapter);
+const rooms = createRoomController(adapter);
+const listenTogether = createListenTogetherPage(document, adapter, rooms);
 
 const stylesheet = adapter.getVisualSkinStyleSheet(VISUAL_SKIN_RULES);
 let applied: AppliedVisualSkin | undefined;
@@ -45,8 +47,9 @@ const layoutDiagnostics = createLayoutDiagnostics(
 );
 window.betterYtmLayout = layoutDiagnostics;
 
-function stopEnhancements() {
+function stopEnhancements(leaveRoom = false) {
   listenTogether.dispose();
+  rooms.stop(leaveRoom);
   layoutDiagnostics.cancel();
   unsubscribeRuntime?.();
   unsubscribeRuntime = undefined;
@@ -72,7 +75,7 @@ async function refresh() {
     console.warn('[Better YTM] Settings diagnostics:', result.state.diagnostics);
   }
   if (!result.state.settings.enabled) {
-    stopEnhancements();
+    stopEnhancements(true);
     return;
   }
   if (!unsubscribeRuntime) {
@@ -94,6 +97,8 @@ async function refresh() {
     });
   }
   adapter.initialize();
+  rooms.start();
+  listenTogether.start();
   if (disposed || !pageActive || currentRevision !== revision) return;
   try {
     const theme = resolveTheme(result.state.settings.theme);

@@ -20,6 +20,7 @@ export function changedPlaybackEvents(
     (before?.artworkUrl ?? null) !== (after?.artworkUrl ?? null)
   )
     events.push('metadatachange');
+  if (current?.ended && !previous?.ended) events.push('ended');
   if (previous && current) {
     if (previous.playing !== current.playing) events.push(current.playing ? 'play' : 'pause');
     if (previous.positionMs !== current.positionMs) events.push('positionchange');

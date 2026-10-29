@@ -6,7 +6,12 @@ import { compileVisualSkin } from './visual-styles.js';
 import type { VisualRule } from '@better-ytm/shared';
 import { createDiagnosticReporter, emptyCapabilities, healthSignature } from './diagnostics.js';
 import { changedPlaybackEvents } from './events.js';
-import { readMetadata, trackFromMetadata, watchUrlForVideoId } from './metadata.js';
+import {
+  readMetadata,
+  trackFromMetadata,
+  videoIdFromWatchLink,
+  watchUrlForVideoId,
+} from './metadata.js';
 import { observePlayer } from './observer.js';
 import { canSeek, clickControl, failure, readPlayback, seekMedia, setPlaying } from './player.js';
 import { isUsableControl, profileIsMapped, resolveElement, SELECTOR_PROFILE } from './selectors.js';
@@ -350,6 +355,10 @@ class DOMYTMAdapter implements YTMAdapter {
       return failure('invalid-argument', 'A valid public YouTube video identifier is required.');
     if (!this.#read().health.capabilities.openTrack)
       return failure('unavailable', 'Public watch navigation is unavailable in this document.');
+    // A restored room can arrive before player metadata on the new watch page.
+    // Let that page finish loading instead of navigating to itself indefinitely.
+    if (videoIdFromWatchLink(this.#document.location.href, this.#document.baseURI) === videoId)
+      return { ok: true };
     try {
       this.#document.location.assign(url);
       return { ok: true };

@@ -1,7 +1,7 @@
 import { z } from 'zod/v3';
 import type { PlaybackSnapshot } from './playback.js';
 
-/** Draft v1 wire contract. Runtime validation is shared by client and future server. */
+/** Versioned v1 wire contract. Runtime validation is shared by client and server. */
 export const ROOM_PROTOCOL_VERSION = 1;
 const identifier = z
   .string()
@@ -40,6 +40,7 @@ export const roomPlaybackSchema = z
 export const roomMemberSchema = z.strictObject({
   clientId: identifier,
   displayName: z.string().trim().min(1).max(60),
+  connected: z.boolean().default(true),
 });
 
 /** Upcoming tracks only. Repeated videoIds are allowed; entry IDs are unique. */
@@ -53,6 +54,8 @@ export const roomQueueItemSchema = z.strictObject({
 export const roomSnapshotSchema = z
   .strictObject({
     roomId: identifier,
+    code: z.string().regex(/^[A-Z2-9]{10}$/),
+    playbackEpoch: milliseconds,
     revision: milliseconds,
     serverTimeMs: milliseconds,
     hostClientId: identifier,
@@ -89,6 +92,7 @@ export const roomSnapshotEventSchema = z
       });
   });
 
+export type RoomTrack = z.infer<typeof roomTrackSchema>;
 export type RoomPlayback = z.infer<typeof roomPlaybackSchema>;
 export type RoomMember = z.infer<typeof roomMemberSchema>;
 export type RoomQueueItem = z.infer<typeof roomQueueItemSchema>;

@@ -33,7 +33,7 @@ const options = {
   splitting: false,
   format: 'iife',
   platform: 'browser',
-  target: 'chrome111',
+  target: 'chrome116',
   sourcemap: watchMode ? 'external' : false,
   minify: !watchMode,
   logLevel: 'info',

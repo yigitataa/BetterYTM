@@ -55,7 +55,8 @@ export type PlaybackEventType =
   | 'seek'
   | 'durationchange'
   | 'volumechange'
-  | 'bufferingchange';
+  | 'bufferingchange'
+  | 'ended';
 
 export type YTMEvent =
   | {

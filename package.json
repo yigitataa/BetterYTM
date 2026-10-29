@@ -17,7 +17,8 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "test:unit": "pnpm --filter @better-ytm/shared --filter @better-ytm/theme-engine --filter @better-ytm/ytm-adapter build && node --test tests/*.test.mjs",
-    "start:server": "pnpm --filter @better-ytm/server start"
+    "start:server": "pnpm --filter @better-ytm/server start",
+    "test:rooms": "pnpm --filter @better-ytm/shared --filter @better-ytm/ytm-adapter --filter @better-ytm/server build && node scripts/build-room-tests.mjs && node --test tests/integration/*.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

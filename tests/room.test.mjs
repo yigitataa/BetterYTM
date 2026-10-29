@@ -15,6 +15,8 @@ const playback = {
 };
 const room = {
   roomId: 'room_1',
+  code: 'ABCDEFGH23',
+  playbackEpoch: 0,
   revision: 3,
   serverTimeMs: 10000,
   hostClientId: 'host_1',
@@ -121,4 +123,63 @@ test('shared queue preserves repeated songs but requires unique entry IDs and bo
     }).success,
     true,
   );
+});
+
+test('room time projects moving playback, clamps duration and preserves paused positions', async () => {
+  const { roomPosition, clockSample, estimateClock } =
+    await import('../packages/shared/dist/index.js');
+  assert.equal(roomPosition(room, room.serverTimeMs + 1000), 2000);
+  assert.equal(
+    roomPosition({ ...room, playback: { ...playback, playing: false } }, room.serverTimeMs + 1000),
+    1000,
+  );
+  assert.equal(roomPosition(room, room.serverTimeMs - 1000), 1000);
+  assert.equal(roomPosition(room, room.serverTimeMs + 999999), playback.durationMs);
+  assert.deepEqual(clockSample(1000, 1100, 2050), { offset: 1000, rtt: 100 });
+  assert.equal(clockSample(1000, 900, 1000), null);
+  assert.equal(clockSample(1000, 12000, 1000), null);
+  assert.deepEqual(
+    estimateClock([
+      { offset: 1000, rtt: 20 },
+      { offset: 1010, rtt: 30 },
+      { offset: 5000, rtt: 4000 },
+    ]),
+    { offset: 1010, rtt: 20 },
+  );
+});
+
+test('invite links and song inputs reject deceptive origins and preserve server selection', async () => {
+  const { normalizeRoomServer, parseRoomInvite, roomInvite, trackFromRoomInput } =
+    await import('../packages/shared/dist/index.js');
+  assert.equal(normalizeRoomServer('ws://127.0.0.1:8787'), 'ws://127.0.0.1:8787/ws');
+  assert.equal(normalizeRoomServer('wss://rooms.example.test'), 'wss://rooms.example.test/ws');
+  for (const url of [
+    'ws://remote.example.test/ws',
+    'https://rooms.example.test',
+    'wss://user:password@example.test/ws',
+    'wss://example.test/ws?token=secret',
+  ])
+    assert.equal(normalizeRoomServer(url), null);
+  const link = roomInvite('wss://rooms.example.test/ws', 'ABCDEFGH23');
+  assert.deepEqual(parseRoomInvite(link), {
+    code: 'ABCDEFGH23',
+    serverUrl: 'wss://rooms.example.test/ws',
+  });
+  assert.deepEqual(parseRoomInvite('abcde-fgh23'), { code: 'ABCDEFGH23', serverUrl: null });
+  assert.equal(
+    parseRoomInvite(link.replace('music.youtube.com', 'music.youtube.com.evil.test')),
+    null,
+  );
+  assert.deepEqual(trackFromRoomInput('https://music.youtube.com/watch?v=abcdefgh_-1&list=test'), {
+    videoId: 'abcdefgh_-1',
+  });
+  assert.deepEqual(trackFromRoomInput('https://youtu.be/abcdefgh_-1'), { videoId: 'abcdefgh_-1' });
+  for (const value of [
+    'short',
+    'javascript:alert(1)',
+    'https://youtube.com.evil.test/watch?v=abcdefgh_-1',
+    'https://user:password@youtube.com/watch?v=abcdefgh_-1',
+    'http://youtube.com/watch?v=abcdefgh_-1',
+  ])
+    assert.equal(trackFromRoomInput(value), null);
 });

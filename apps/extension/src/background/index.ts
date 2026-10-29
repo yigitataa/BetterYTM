@@ -1,5 +1,8 @@
+import { registerRoomConnections } from './rooms.js';
 import { settingsRequestSchema, type SettingsResult } from '@better-ytm/shared';
 import { SettingsError, settingsStore } from '../settings/store.js';
+
+registerRoomConnections();
 
 // Register listeners synchronously; storage is authoritative after worker restarts.
 chrome.runtime.onMessage.addListener(

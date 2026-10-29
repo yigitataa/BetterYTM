@@ -10,10 +10,12 @@
     "start": "node --env-file-if-exists=.env dist/index.js"
   },
   "dependencies": {
-    "@better-ytm/shared": "workspace:*"
+    "@better-ytm/shared": "workspace:*",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.20.6"
   }
 }

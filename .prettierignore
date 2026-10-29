@@ -3,3 +3,4 @@ node_modules/
 .pnpm-store/
 pnpm-lock.yaml
 local-reference/
+.test-build/
