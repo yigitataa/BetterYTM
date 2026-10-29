@@ -1,4 +1,5 @@
 import type { PlaybackSnapshot, PlaybackState, Track, TrackMetadata } from '@better-ytm/shared';
+import type { GlassBindingHealth, LayoutSnapshot, VisualRule } from '@better-ytm/shared';
 
 export interface AdapterCapabilities {
   readonly playback: boolean;
@@ -82,4 +83,11 @@ export interface YTMAdapter {
   /** Public watch-page navigation; no private player API or network interception. */
   openTrack(videoId: string): Promise<AdapterResult>;
   subscribe(listener: (event: YTMEvent) => void): () => void;
+  /** Compile semantic paint rules without exposing host selectors. */
+  getVisualSkinStyleSheet(rules: readonly VisualRule[]): string;
+  enableVisualGlass(): AdapterResult;
+  disableVisualGlass(): void;
+  getVisualGlassHealth(): GlassBindingHealth;
+  /** Manual diagnostics only; no automatic layout probing. */
+  captureLayout(): LayoutSnapshot;
 }

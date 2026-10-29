@@ -1,4 +1,104 @@
 /** All host selectors, including fallback order, live in this module only. */
+import type { GlassTarget, LayoutRegion, VisualTarget } from '@better-ytm/shared';
+
+// Home/miniplayer mappings verified in the user's 2026-10-05 UI-only report.
+// Main playlist row mappings await a report; queue rows are not their fallback.
+export const VISUAL_SELECTORS: Readonly<Record<VisualTarget, readonly string[]>> = {
+  canvas: ['html', 'body', 'ytmusic-app'],
+  ambientCanvas: ['ytmusic-app'],
+  navigationBackground: ['ytmusic-app-layout #nav-bar-background'],
+  navigationDivider: ['ytmusic-app-layout #nav-bar-divider'],
+  sidebar: ['tp-yt-app-drawer#guide'],
+  sidebarContent: ['#guide-content'],
+  sidebarEntry: ['ytmusic-guide-entry-renderer tp-yt-paper-item'],
+  sidebarSelected: [
+    'ytmusic-guide-entry-renderer[active] tp-yt-paper-item',
+    'ytmusic-guide-entry-renderer tp-yt-paper-item[aria-current="true"]',
+  ],
+  miniSidebarBackground: ['ytmusic-app-layout #mini-guide-background'],
+  navigation: ['ytmusic-nav-bar'],
+  search: ['ytmusic-search-box .search-container'],
+  searchInput: ['ytmusic-search-box input#input'],
+  suggestions: ['ytmusic-search-suggestions-section'],
+  suggestion: ['ytmusic-search-suggestion'],
+  content: ['ytmusic-app-layout #content[role="main"]'],
+  // Both direct children are present in the captured native browse template.
+  // Clearing only the gradient leaves a finite-height immersive image/color slab.
+  browseBackground: [
+    'ytmusic-browse-response > .background-gradient',
+    'ytmusic-browse-response > #background.immersive-background',
+  ],
+  card: ['ytmusic-two-row-item-renderer'],
+  cardArtwork: ['ytmusic-two-row-item-renderer a.image-wrapper'],
+  cardDetails: ['ytmusic-two-row-item-renderer .details'],
+  row: ['ytmusic-player-queue-item'],
+  rowSelected: ['ytmusic-player-queue-item[selected]'],
+  rowDetails: ['ytmusic-player-queue-item .song-info'],
+  rowSecondary: ['ytmusic-player-queue-item .duration'],
+  player: ['ytmusic-miniplayer'],
+  playerPage: ['ytmusic-player-page'],
+  queue: ['ytmusic-player-queue'],
+  playerArtwork: ['ytmusic-miniplayer img.ytmusicTrackInfoThumbnail'],
+  playerControl: ['ytmusic-miniplayer button'],
+  playerIcon: ['ytmusic-miniplayer button svg'],
+  progress: ['ytmusic-miniplayer input.ytMusicMiniPlayerProgressBar'],
+  volume: ['ytmusic-miniplayer input#slider.ytSliderShapeVerticalSlider'],
+  keyboardFocus: ['ytmusic-app :focus-visible'],
+};
+
+export const GLASS_ATTRIBUTE = 'data-bytm-glass';
+export const GLASS_VALUE = 'phase-3';
+export const GLASS_TARGETS: readonly GlassTarget[] = ['navigation', 'sidebarContent', 'player'];
+// One state attribute beats native class paint rules without an ID/specificity stack.
+export const SKIN_SCOPE = ':where(html)[data-bytm-enabled="true"]';
+export const HOST_COLOR_SCOPE = ':where(ytmusic-app)';
+
+// Only color variables actually present in the user's computed-style report.
+// Never map density, spacing, font or size variables into host CSS.
+export const HOST_COLOR_VARIABLES: Readonly<Record<string, string>> = {
+  '--ytmusic-background': '--bytm-background-base',
+  '--ytmusic-color-black4': '--bytm-background-base',
+  '--ytmusic-color-black1': '--bytm-surface-solid',
+  '--ytmusic-brand-background-solid': '--bytm-surface-solid',
+  '--ytmusic-menu-item-hover-background-color': '--bytm-glass-fill',
+  '--ytmusic-menu-item-focus-background-color': '--bytm-glass-fill-strong',
+  '--ytmusic-dropdown-item-hover-background': '--bytm-glass-fill-strong',
+  '--ytmusic-dropdown-border-color': '--bytm-glass-stroke',
+  '--ytmusic-search-border': '--bytm-glass-stroke',
+  '--ytmusic-guide-entry-focus-border': '--bytm-accent',
+  '--ytmusic-search-bar-background-bauhaus': '--bytm-glass-fill',
+  '--paper-input-container-input-color': '--bytm-text-primary',
+  '--paper-menu-color': '--bytm-text-primary',
+  '--ytmusic-player-bar-ink-color': '--bytm-text-secondary',
+  '--ytmusic-icon-disabled': '--bytm-text-muted',
+  '--ytmusic-search-suggestion-icon-color': '--bytm-text-secondary',
+  '--ytmusic-color-white1-alpha70': '--bytm-text-secondary',
+  '--ytmusic-color-white-opacity-0-5': '--bytm-text-secondary',
+};
+
+export const LAYOUT_SELECTORS: Readonly<Record<LayoutRegion, readonly string[]>> = {
+  sidebar: ['#guide-content', 'ytmusic-guide-renderer#guide-renderer'],
+  navigation: VISUAL_SELECTORS.navigation,
+  search: VISUAL_SELECTORS.search,
+  content: VISUAL_SELECTORS.content,
+  card: VISUAL_SELECTORS.card,
+  row: [],
+  player: VISUAL_SELECTORS.player,
+  artwork: VISUAL_SELECTORS.playerArtwork,
+  controls: ['ytmusic-miniplayer ytmusic-wiz-player-controls'],
+};
+
+export function visualNodes(scope: ParentNode, selectors: readonly string[]): Element[] {
+  return selectors.length ? [...scope.querySelectorAll(selectors.join(', '))] : [];
+}
+
+export function containsGlassTarget(node: Node): boolean {
+  if (node.nodeType !== 1) return false;
+  const element = node as Element;
+  const selector = GLASS_TARGETS.flatMap((target) => VISUAL_SELECTORS[target]).join(', ');
+  return element.matches(selector) || element.querySelector(selector) !== null;
+}
+
 type SelectorRole =
   | 'mediaRoot'
   | 'playerRoot'
@@ -45,6 +145,8 @@ export const UI_OBSERVED_ATTRIBUTES = [
   'inert',
   'href',
   'src',
+  'srcset',
+  'sizes',
   'title',
   'aria-label',
 ];

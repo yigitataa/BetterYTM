@@ -68,16 +68,18 @@ test('updates merge overrides; changing preset clears previous overrides', () =>
   assert.equal(updated.theme.presetId, 'midnight-glass');
 });
 
-test('every preset resolves; default tokens retain blueprint values', () => {
+test('every preset resolves; experiment defaults use translucent glass and full artwork ambience', () => {
   for (const preset of THEME_PRESETS) {
     const theme = resolveTheme({ presetId: preset.id, overrides: {} });
     assert.equal(themeToTokens(theme)['--bytm-accent'], preset.config.accent);
   }
   const tokens = themeToTokens(resolveTheme(createDefaultSettings().theme));
   assert.equal(tokens['--bytm-background-base'], 'rgb(8, 10, 15)');
-  assert.equal(tokens['--bytm-glass-fill'], 'rgba(255, 255, 255, 0.065)');
+  assert.equal(tokens['--bytm-glass-fill'], 'rgba(255, 255, 255, 0.075)');
   assert.equal(tokens['--bytm-radius-4'], '22px');
-  assert.equal(tokens['--bytm-blur-3'], '22px');
+  assert.equal(tokens['--bytm-blur-3'], '24px');
+  assert.equal(tokens['--bytm-ambience-intensity'], '1');
+  assert.equal(tokens['--bytm-artwork-accent-enabled'], '1');
 });
 
 test('system reduced motion overrides expressive motion and ambience', () => {

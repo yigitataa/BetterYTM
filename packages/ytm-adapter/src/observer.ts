@@ -77,6 +77,7 @@ export function observePlayer(document: Document, refresh: (causes: ReadonlySet<
     ) {
       if (stopped) return;
       if (nextMediaRoot !== mediaRoot || nextPlayerRoot !== playerRoot) {
+        playerRoot?.removeEventListener('load', onMediaEvent, true);
         for (const observer of scoped) observer.disconnect();
         scoped = [];
         mediaRoot = nextMediaRoot;
@@ -93,6 +94,7 @@ export function observePlayer(document: Document, refresh: (causes: ReadonlySet<
           scoped.push(observer);
         }
         if (playerRoot) {
+          playerRoot.addEventListener('load', onMediaEvent, true);
           const observer = new Observer(() => schedule('dom'));
           observer.observe(playerRoot, {
             childList: true,
@@ -116,6 +118,7 @@ export function observePlayer(document: Document, refresh: (causes: ReadonlySet<
       structural.disconnect();
       for (const observer of scoped) observer.disconnect();
       if (media) for (const name of MEDIA_EVENTS) media.removeEventListener(name, onMediaEvent);
+      playerRoot?.removeEventListener('load', onMediaEvent, true);
       if (timer !== undefined) clearTimeout(timer);
       timer = undefined;
       causes.clear();

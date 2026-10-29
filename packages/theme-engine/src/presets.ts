@@ -5,8 +5,7 @@ import {
   type ThemeDefinition,
 } from '@better-ytm/shared';
 
-// No design/ assets were supplied. The default follows the available blueprint;
-// the two restrained variants can be replaced when canonical presets are provided.
+// These palettes also serve as fallbacks while a cover is unavailable.
 export const THEME_PRESETS = [
   {
     schemaVersion: 1,
@@ -20,7 +19,7 @@ export const THEME_PRESETS = [
     id: 'graphite',
     name: 'Graphite',
     palette: { background: '#0B0C0E', surface: '#17181B', surfaceElevated: '#24262A' },
-    config: { ...DEFAULT_THEME_CONFIG, accent: '#B9C5D8', glassOpacity: 0.045, glassBlur: 14 },
+    config: { ...DEFAULT_THEME_CONFIG, accent: '#B9C5D8', glassOpacity: 0.03 },
   },
   {
     schemaVersion: 1,

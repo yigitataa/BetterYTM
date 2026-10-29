@@ -1,4 +1,8 @@
 import type { PlaybackSnapshot, TrackMetadata } from '@better-ytm/shared';
+import { createLayoutCapture } from './layout.js';
+import { bindVisualGlass } from './visual-glass.js';
+import { compileVisualSkin } from './visual-styles.js';
+import type { VisualRule } from '@better-ytm/shared';
 import { createDiagnosticReporter, emptyCapabilities, healthSignature } from './diagnostics.js';
 import { changedPlaybackEvents } from './events.js';
 import { readMetadata, trackFromMetadata, watchUrlForVideoId } from './metadata.js';
@@ -34,6 +38,8 @@ class DOMYTMAdapter implements YTMAdapter {
   #observation: Observation | undefined;
   #listeners = new Set<{ listener: (event: YTMEvent) => void }>();
   #epoch = 0;
+  #glass: ReturnType<typeof bindVisualGlass> | undefined;
+  #captureLayout: ReturnType<typeof createLayoutCapture>;
   #reporter = createDiagnosticReporter();
   #previous: PlaybackSnapshot | null = null;
   #previousMetadata: TrackMetadata = emptyMetadata();
@@ -42,6 +48,7 @@ class DOMYTMAdapter implements YTMAdapter {
 
   constructor(document: Document) {
     this.#document = document;
+    this.#captureLayout = createLayoutCapture(document);
   }
 
   initialize() {
@@ -66,6 +73,7 @@ class DOMYTMAdapter implements YTMAdapter {
 
   destroy() {
     this.#initialized = false;
+    this.disableVisualGlass();
     this.#epoch++;
     this.#observation?.stop();
     this.#observation = undefined;
@@ -351,6 +359,35 @@ class DOMYTMAdapter implements YTMAdapter {
     return () => {
       this.#listeners.delete(subscription);
     };
+  }
+  getVisualSkinStyleSheet(rules: readonly VisualRule[]) {
+    return compileVisualSkin(rules);
+  }
+  enableVisualGlass(): AdapterResult {
+    if (!this.#initialized) return this.#inactive();
+    if (this.#glass)
+      return this.#glass.getHealth().enabled
+        ? { ok: true }
+        : failure('unavailable', 'Decorative blur probing stopped; inspect glass health.');
+    try {
+      this.#glass = bindVisualGlass(this.#document);
+      return { ok: true };
+    } catch {
+      return failure(
+        'host-error',
+        'Decorative blur unavailable; paint-only surfaces remain usable.',
+      );
+    }
+  }
+  getVisualGlassHealth() {
+    return this.#glass?.getHealth() ?? { enabled: false, eligible: [], skipped: {} };
+  }
+  disableVisualGlass() {
+    this.#glass?.dispose();
+    this.#glass = undefined;
+  }
+  captureLayout() {
+    return this.#captureLayout();
   }
 }
 
