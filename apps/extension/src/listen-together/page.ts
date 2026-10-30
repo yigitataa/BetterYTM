@@ -1,6 +1,7 @@
 import { parseRoomInvite, roomInvite, trackFromRoomInput } from '@better-ytm/shared';
 import type { YTMAdapter } from '@better-ytm/ytm-adapter';
 import type { RoomController } from './controller.js';
+import { isolateRoomKeyboard } from './keyboard.js';
 import { LISTEN_TOGETHER_CSS } from './styles.js';
 
 /** Accessible, isolated room UI. Networking and player synchronization live in the controller. */
@@ -14,6 +15,7 @@ export function createListenTogetherPage(
   let returnFocus: Element | null = null;
   let render: (() => void) | undefined;
   let unsubscribe: (() => void) | undefined;
+  let releaseKeyboard: (() => void) | undefined;
   let started = false;
   let closedByUser = false;
   const initialInvite = parseRoomInvite(document.location.href);
@@ -41,6 +43,8 @@ export function createListenTogetherPage(
     }
     const previous = dialog;
     dialog = undefined;
+    releaseKeyboard?.();
+    releaseKeyboard = undefined;
     previous?.close();
     host?.remove();
     host = undefined;
@@ -262,6 +266,7 @@ export function createListenTogetherPage(
     });
     shadow.append(element('style', LISTEN_TOGETHER_CSS), dialog);
     document.body.append(host);
+    releaseKeyboard = isolateRoomKeyboard(host);
     let queueSignature = '';
     let membersSignature = '';
     render = () => {
