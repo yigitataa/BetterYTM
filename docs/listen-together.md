@@ -75,6 +75,9 @@ kontrol etmek için kullanılabilir; aynı hesapla çift ses çalmayı garanti e
 
 ## Farklı bilgisayarlar / uzaktan dinleme
 
+Ücretsiz test sunucusu için adım adım [Render kurulumu](render-setup.md)
+ve depo kökünde hazır `render.yaml` bulunur.
+
 `127.0.0.1` her cihazın kendisidir. Başka bir bilgisayara yerel davet göndermek,
 ona senin bilgisayarındaki sunucuya erişim sağlamaz.
 

@@ -1,0 +1,18 @@
+# Deploy only the shared room server. Each participant builds the Chrome extension locally.
+services:
+  - type: web
+    name: better-ytm-rooms
+    runtime: node
+    plan: free
+    buildCommand: >-
+      npx --yes pnpm@12.5.1 install --frozen-lockfile --prod=false &&
+      npx --yes pnpm@12.5.1 --filter @better-ytm/shared --filter @better-ytm/server build
+    startCommand: node apps/server/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: NODE_ENV
+        value: production
