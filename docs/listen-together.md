@@ -1,15 +1,16 @@
 # Birlikte Dinle
 
-İlk sürüm: ayrı cihazlarda senkron dinleme ve ortak sıra. Sunucu kendi ortamında
-çalıştırılır; bu depoya bağlı, önceden yayınlanmış bir ortak sunucu yoktur.
+Ayrı cihazlarda senkron dinleme ve ortak sıra. Tüm katılımcılar oynatmayı kontrol
+eder; oda sahibi yalnızca odayı bitirme yetkisiyle ayrılır. Ortak bir WSS sunucusu gerekir.
 
 ## Kullanım
 
 - Oda sahibi oda oluşturur, kod veya davet bağlantısı paylaşır.
 - Katılımcılar görünen adlarıyla katılır. Herkes kendi YTM oturumundan dinler.
-- Her üye şarkı ekler. Oda sahibi oynatır/duraklatır, sarar, sırayı taşır/siler
-  ve **Sıradakini çal** ile ilerler.
-- Host parçası bitince ortak sıranın ilk şarkısı çalınır. Sıra boşsa oda oynatımı durur.
+- Her üye şarkı ekler, oynatır/duraklatır, sarar, sırayı taşır/siler ve
+  **Sıradakini çal** ile ilerler. YTM’nin kendi oynatıcısındaki işlemler de ortaktır.
+- Son işlemi yapan cihazın parçası bitince ortak sıranın ilk şarkısı çalınır.
+  Sıra boşsa oda oynatımı durur. Aynı anda gelen geçişler yalnızca bir kez uygulanır.
 - Ses seviyesi ve sessize alma cihazda kalır. Ekranı kapatmak odadan çıkarmaz.
 - Oda sahibi **Odayı bitir**, misafir **Odadan ayrıl** ile çıkar. Müzik bundan
   sonra yerel YTM kontrolünde kalır.
@@ -52,17 +53,18 @@
    parça çalınca gerçek metadata güncellenir. **Sende çalanı sıraya ekle** mevcut
    parçanın başlığını da taşır.
 
-6. Oda sahibinde **Oynat/Duraklat**ı dene, ardından YTM'nin kendi ilerleme çubuğundan
-   örneğin 30. saniyeye sar. Misafir aynı duruma gelmeli. Misafir yanlışlıkla kendi
-   oynatıcısını değiştirirse oda durumuna geri getirilir.
+6. İlk cihazda parçayı 30. saniyeye sar, ardından ikinci cihazda duraklat.
+   İkisi de aynı yerde durmalı. İlk cihazda devam ettir, ikinci cihazda 60. saniyeye
+   sar. Her işlem diğer cihaza ulaşmalı. Oda paneli kapalıyken de YTM kontrollerini dene.
+   Yeni katılan cihaz odadaki güncel konuma gelir; **Yeniden eşitle** başa döndürmez.
 
-7. İki şarkı ekle. Host'ta yukarı/aşağı ve **Kaldır** ile sırayı değiştir; misafir
-   aynı sırayı görmeli ve bu host düğmelerine sahip olmamalı. **Sıradakini çal**a
+7. İki şarkı ekle. Her iki cihazda yukarı/aşağı ve **Kaldır** düğmelerini dene;
+   herkes aynı sırayı görmeli. **Sıradakini çal**a
    bas; iki istemci yeni parçaya geçmeli. Parça geçişi public watch URL üzerinden
    sayfayı yenileyebilir. Bu sırada üyelik korunur; açık oda ekranı geri gelir.
 
 8. Misafir sekmesini yenile. Aynı oda ve üyelik geri gelmeli; ikinci bir misafir
-   oluşmamalı. Ses engellenirse **Senkronu başlat**a bas. Escape ile ekranı kapatıp
+   oluşmamalı. Ses engellenirse **Sesi etkinleştir**a bas. Escape ile ekranı kapatıp
    ikondan tekrar aç; oda devam etmeli.
 
 9. Misafir **Odadan ayrıl** dediğinde host odası açık kalmalı. Host **Odayı bitir**
@@ -95,13 +97,24 @@ Container/harici proxy bağlantısı gerekiyorsa sunucuda `HOST=0.0.0.0` ayarlan
 Bu değişiklikte herhangi bir uzak sunucu yayınlanmadı. Uzak düz `ws://` adresleri
 kabul edilmez; üretim bağlantısı WSS kullanır.
 
+## Bu düzeltmeye güncelleme
+
+Oynatma protokolü **2**, eklenti sürümü **0.0.2** oldu. Sunucu ve tüm eklentiler
+birlikte güncellenmeli; eski sürümler açık bir uyumsuzluk mesajı verir.
+
+1. Değişiklikleri GitHub’a gönder, Render’da **Deploy latest commit** yap.
+2. `/health` yanıtında `protocolVersion: 2` görünmesini bekle.
+3. İki bilgisayarda güncel kaynak kodunda `pnpm install --frozen-lockfile` ve
+   `pnpm build` çalıştır. Chrome eklentisini yeniden yükle, YTM sekmesini yenile.
+4. Yeni oda/davet oluştur. İki ayrı hesapla yukarıdaki karşılıklı kontrolleri dene.
+
 ## Hata durumları
 
 | Durum                                       | Kontrol / beklenen davranış                                                                                            |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Sunucuya bağlanamıyor                       | Terminal açık mı, port ve `/ws` doğru mu? İlk bağlantı üç denemeden sonra açıklayıcı hata verir.                       |
 | Kod bulunamadı                              | Aynı sunucuya bağlı mısın? Oda sahibi ayrılmış veya sunucu yeniden başlamış olabilir.                                  |
-| Ses başlamıyor                              | YTM'de bir kez elle oynat veya **Senkronu başlat**a bas. Autoplay engeli ekranda gösterilir.                           |
+| Ses başlamıyor                              | YTM'de bir kez elle oynat veya **Sesi etkinleştir**a bas. Autoplay engeli ekranda gösterilir.                          |
 | Parça yüklenmiyor                           | Aynı parçaya kendi hesabında erişebiliyor musun? Yükleme/seek hatası görüntülenir; sürekli reload döngüsü yapılmaz.    |
 | Sıra güncellendi uyarısı                    | Başka bir işlem aynı anda uygulandı. Güncel sırada işlemi yeniden yap; eski sıra üzerine yazılmaz.                     |
 | Ağ bağlantısı kopuyor                       | Mevcut oda için artan beklemeyle yeniden bağlanır, tam snapshot alır. Kopukken komutlar biriktirilmez.                 |
@@ -124,15 +137,18 @@ atlanmaz. Canlı yayınlarda normal süre/seek davranışı bulunmayabilir. YTM'
 - `apps/extension/src/background/rooms.ts`: sekme başına bağlantı, yalnızca worker'da
   token saklama, 20 saniye heartbeat, beş başlangıç ping'i, reconnect ve oturum restore.
 - `apps/extension/src/listen-together/bridge.ts`: doğrulanan Chrome port mesajları.
-- `controller.ts`: adapter üzerinden oynatma; host yayınlama, guest düzeltme,
-  remote komutun tekrar yayınlanmasını önleme, track readiness ve autoplay hataları.
+- `controller.ts`: adapter üzerinden herkesin yerel işlemlerini sunucuya iletme,
+  tüm cihazları sunucu zamanına eşitleme, uzak işlemleri geri yayınlamama,
+  medya yüklenirken hedef konumu koruma ve autoplay engelini açık kullanıcı hareketiyle kaldırma.
 - `page.ts`: Shadow DOM içinde erişilebilir oda ekranı. Selector ve ağ kodu içermez.
 - `packages/ytm-adapter`: host selector'larının tek sahibi; parça sonunu native
   autoplay öncesi bildirir ve aynı watch sayfasına sonsuz navigasyonu engeller.
 
-Sunucu saati/üyelik/revision otoriterdir. Misafir playback, remove, reorder veya
-next komutları sunucuda reddedilir. Her üye yalnızca kendi secret tokenıyla resume
-edebilir. Gelen mesajlar boyut ve şema kontrolünden geçer; bağlantı/işlem rate
+Sunucu saati/üyelik/revision otoriterdir. Her üye play/pause/seek/track/queue
+komutları gönderebilir. Son oynatma işlemini yapan cihaz yalnızca saat örneklerini
+yayınlar; diğerlerinin kontrol yetkisi devam eder. Eski saat örnekleri başka bir
+katılımcının yeni işlemini geri alamaz. Her üye yalnızca kendi secret tokenıyla
+resume edebilir. Gelen mesajlar boyut ve şema kontrolünden geçer; bağlantı/işlem rate
 limitleri, toplam oda/üye/sıra limitleri ve 6 saatlik oda ömrü vardır. Host dışındaki
 çevrimdışı üyeler de 90 saniye sonra temizlenir. Anahtarlar DOM'a ve content state'e
 verilmez. Ses, medya stream URL'leri, cookie veya YouTube auth bilgileri taşınmaz.
@@ -168,14 +184,17 @@ istemesi normaldir. Testler gerçek `ws` server ve iki client ile çalışır. R
 entegrasyonu gerçek worker/controller kodunu, Chrome port/storage fixture'ı ve
 kontrollü oynatıcılarla birlikte çalıştırır.
 
-Doğrulananlar: create/join, ortak sıra, host yetkileri, duplicate event reddi,
-revision çatışması, play/pause/seek ve drift, parça/ended geçişi, guest echo olmaması,
+Doğrulananlar: create/join, herkesin ortak sıra ve oynatma kontrolü, duplicate event reddi,
+revision çatışması, karşılıklı play/pause/seek ve drift, parça/ended geçişi, geciken uzak olayların geri yayınlanmaması,
+ortadan katılma, geçici seek hatası sırasında play/pause ve aynı konumda yeniden eşitleme,
 refresh, socket reconnect, worker restart, secret token izolasyonu, autoplay
 hatasından kullanıcı hareketiyle çıkış, feature disable ve oda kapanması.
 
 Ayrıca iki yerel tarayıcı sekmesinde gerçek oda server'ıyla formdan create/join,
 misafirden şarkı ekleme, ortak durum, oynatma ve sonraki parçaya geçiş, yenilemede
 oda ekranının restore edilmesi ve 600px pencere kontrol edildi. Bu görsel fixture'ın
-oynatıcısı simüledir; canlı Chrome/YTM hesabı testi değildir. Bu ortamda Chrome
-otomasyonu izinli olmadığından gerçek hesaplarla ses kabulü yukarıdaki adımlarla
-kullanıcı tarafından yapılmalıdır.
+oynatıcısı simüledir; canlı Chrome/YTM hesabı testi değildir. Ayrıca kaydırıcısı olmayan gerçek HTML video öğeleriyle iki tarayıcı sekmesinde
+ortadan katılma, misafirden duraklatma, devam ettirme, yerel sarma ve yeniden eşitleme
+doğrulandı. Yerel testte duraklatılmış konumlar 73.310 ve 73.345 saniyeydi
+(yaklaşık 35 ms fark). Bu test kontrollü, sessiz bir medya kaynağı kullanır;
+gerçek YTM hesaplarında ses kabulü yukarıdaki adımlarla yapılmalıdır.

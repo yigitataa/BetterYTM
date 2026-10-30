@@ -128,6 +128,9 @@ function adapterFixture(videoId = A) {
   let ended = false;
   const adapter = {
     blocked: false,
+    seekUnavailable: false,
+    buffering: false,
+    eventDelay: 0,
     opens: [],
     getTrackMetadata: () => ({
       videoId: id,
@@ -146,7 +149,7 @@ function adapterFixture(videoId = A) {
         durationMs: 180000,
         volume: 0.6,
         muted: false,
-        buffering: false,
+        buffering: this.buffering,
         ended,
         capturedAt: Date.now(),
       };
@@ -156,10 +159,18 @@ function adapterFixture(videoId = A) {
       return () => listeners.delete(fn);
     },
     emit(type) {
+      if (this.eventDelay) {
+        setTimeout(() => {
+          for (const fn of listeners)
+            fn({ type, snapshot: this.getPlaybackSnapshot(), metadata: this.getTrackMetadata() });
+        }, this.eventDelay);
+        return;
+      }
       for (const fn of listeners)
         fn({ type, snapshot: this.getPlaybackSnapshot(), metadata: this.getTrackMetadata() });
     },
     async play() {
+      if (playing && !ended) return { ok: true };
       if (this.blocked)
         return { ok: false, error: { code: 'autoplay-blocked', message: 'Blocked' } };
       base = this.getPlaybackSnapshot().positionMs;
@@ -170,6 +181,7 @@ function adapterFixture(videoId = A) {
       return { ok: true };
     },
     async pause() {
+      if (!playing) return { ok: true };
       base = this.getPlaybackSnapshot().positionMs;
       playing = false;
       this.emit('pause');
@@ -179,6 +191,8 @@ function adapterFixture(videoId = A) {
       return playing ? this.pause() : this.play();
     },
     async seek(seconds) {
+      if (this.seekUnavailable)
+        return { ok: false, error: { code: 'unavailable', message: 'Loading' } };
       base = seconds * 1000;
       at = Date.now();
       ended = base >= 180000;
@@ -241,7 +255,7 @@ async function runtime(t) {
 }
 
 test(
-  'full worker/controller flow syncs play, seek, queue transitions, ended tracks and refresh without guest echo',
+  'both members synchronize native play/pause/seek and shared queue across refresh without echoes',
   { timeout: 20000 },
   async (t) => {
     const env = await runtime(t);
@@ -276,12 +290,33 @@ test(
     );
     await guest.adapter.seek(90);
     await until(
-      () => guest.adapter.getPlaybackSnapshot().positionMs < 35000,
-      'Guest drift was not corrected',
+      () =>
+        Math.abs(
+          host.adapter.getPlaybackSnapshot().positionMs -
+            guest.adapter.getPlaybackSnapshot().positionMs,
+        ) < 750,
+      'Guest seek did not reach the first participant',
     );
     assert.equal(
       guest.bridge.commands.filter((m) => m.action?.type === 'playback.update').length,
       0,
+    );
+    await guest.adapter.pause();
+    await until(() => !host.adapter.getPlaybackSnapshot().playing, 'Guest native pause was lost');
+    host.adapter.buffering = true;
+    await host.adapter.play();
+    await until(
+      () => guest.adapter.getPlaybackSnapshot().playing,
+      'Play during buffering was lost',
+    );
+    host.adapter.buffering = false;
+    await guest.controller.resync();
+    await guest.adapter.pause();
+    await until(() => !host.adapter.getPlaybackSnapshot().playing, 'Pause after resync was lost');
+    await guest.adapter.play();
+    await until(
+      () => host.adapter.getPlaybackSnapshot().playing,
+      'A no-op resync swallowed the next native play',
     );
     guest.controller.addTrack({ videoId: B });
     await until(
@@ -305,7 +340,7 @@ test(
       () => host.controller.getState().connection.snapshot.queue.length === 1,
       'Queue removal failed',
     );
-    host.controller.next();
+    guest.controller.next();
     await until(
       () =>
         host.adapter.getTrackMetadata().videoId === C &&
@@ -337,7 +372,7 @@ test(
       () => restored.controller.getState().connection.snapshot.queue.length === 1,
       'Queue was not available after refresh',
     );
-    restored.adapter.end();
+    guest.adapter.end();
     await until(
       () =>
         restored.adapter.getTrackMetadata().videoId === B &&
@@ -345,7 +380,7 @@ test(
         guest.adapter.getPlaybackSnapshot().playing,
       'Track end did not advance shared queue',
     );
-    restored.adapter.end();
+    guest.adapter.end();
     await until(
       () => !guest.controller.getState().connection.snapshot.playback.playing,
       'Empty queue did not stop playback',
@@ -361,6 +396,80 @@ test(
     restored.controller.stop(true);
     await until(() => env.app.rooms.roomCount === 0, 'Disable did not end host room');
     assert.equal(restored.adapter.subscriberCount, 0);
+  },
+);
+
+test(
+  'joining and resync retain the moving position, retry unavailable seek, and delayed remote events do not echo',
+  { timeout: 12000 },
+  async (t) => {
+    const env = await runtime(t);
+    const host = env.client(61);
+    const guestAdapter = adapterFixture();
+    guestAdapter.seekUnavailable = true;
+    const guest = env.client(62, guestAdapter);
+    await until(
+      () => host.controller.getState().connection.clientId !== 'pending',
+      'Worker not attached',
+    );
+    await host.adapter.seek(73);
+    await host.adapter.play();
+    host.controller.create(env.url, 'Host');
+    await until(
+      () => host.controller.getState().connection.status === 'connected',
+      'Create failed',
+    );
+    guest.controller.join(env.url, 'Guest', host.controller.getState().connection.snapshot.code);
+    await until(
+      () =>
+        guest.controller.getState().connection.status === 'connected' &&
+        guest.adapter.getPlaybackSnapshot().playing,
+      'Seek failure prevented play',
+    );
+    await host.adapter.pause();
+    await until(() => !guest.adapter.getPlaybackSnapshot().playing, 'Seek failure prevented pause');
+    guest.adapter.seekUnavailable = false;
+    await guest.controller.resync();
+    await until(
+      () =>
+        Math.abs(
+          host.adapter.getPlaybackSnapshot().positionMs -
+            guest.adapter.getPlaybackSnapshot().positionMs,
+        ) < 150,
+      'Resync reset or lost the paused position',
+    );
+    assert.ok(guest.adapter.getPlaybackSnapshot().positionMs > 73000);
+    guest.adapter.eventDelay = 900;
+    const before = guest.bridge.commands.filter((m) =>
+      m.action?.type.startsWith('playback.'),
+    ).length;
+    await host.adapter.play();
+    await until(() => guest.adapter.getPlaybackSnapshot().playing, 'Remote play failed');
+    await host.adapter.seek(96);
+    await until(
+      () => guest.adapter.getPlaybackSnapshot().positionMs >= 96000,
+      'Remote seek failed',
+    );
+    await delay(1200);
+    assert.equal(
+      guest.bridge.commands.filter((m) => m.action?.type.startsWith('playback.')).length,
+      before,
+      'Remote media events were published back into the room',
+    );
+    assert.ok(
+      Math.abs(
+        host.adapter.getPlaybackSnapshot().positionMs -
+          guest.adapter.getPlaybackSnapshot().positionMs,
+      ) < 750,
+    );
+    guest.adapter.eventDelay = 0;
+    await guest.adapter.openTrack(B);
+    await guest.adapter.play();
+    await until(
+      () =>
+        host.adapter.getTrackMetadata().videoId === B && host.adapter.getPlaybackSnapshot().playing,
+      'Guest native track change was lost',
+    );
   },
 );
 

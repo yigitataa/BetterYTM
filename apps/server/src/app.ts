@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import type { HealthResponse } from '@better-ytm/shared';
+import { ROOM_PROTOCOL_VERSION, type HealthResponse } from '@better-ytm/shared';
 import { attachRoomServer, type RoomServerOptions } from './rooms.js';
 
 export function createRoomApp(options: RoomServerOptions = {}) {
@@ -12,7 +12,11 @@ export function createRoomApp(options: RoomServerOptions = {}) {
         response.end(JSON.stringify({ error: 'Method not allowed' }));
         return;
       }
-      const health: HealthResponse = { status: 'ok', service: 'better-ytm-server' };
+      const health: HealthResponse = {
+        status: 'ok',
+        service: 'better-ytm-server',
+        protocolVersion: ROOM_PROTOCOL_VERSION,
+      };
       response.writeHead(200);
       response.end(request.method === 'HEAD' ? undefined : JSON.stringify(health));
       return;

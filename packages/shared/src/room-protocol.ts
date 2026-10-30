@@ -24,11 +24,19 @@ const envelope = {
   sentAt: time,
 };
 export const roomActionSchema = z.discriminatedUnion('type', [
-  z.strictObject({ type: z.literal('playback.update'), playback: roomPlaybackSchema }),
+  z.strictObject({ type: z.literal('playback.set-playing'), playing: z.boolean() }),
+  z.strictObject({ type: z.literal('playback.seek'), positionMs: time }),
+  z.strictObject({ type: z.literal('playback.set-track'), playback: roomPlaybackSchema }),
+  z.strictObject({
+    type: z.literal('playback.update'),
+    playback: roomPlaybackSchema,
+    playbackRevision: time,
+    sampledAt: time,
+  }),
   z.strictObject({ type: z.literal('queue.add'), track: roomTrackSchema }),
   z.strictObject({ type: z.literal('queue.remove'), entryId: id }),
   z.strictObject({ type: z.literal('queue.move'), entryId: id, direction: z.enum(['up', 'down']) }),
-  z.strictObject({ type: z.literal('queue.next') }),
+  z.strictObject({ type: z.literal('queue.next'), playbackRevision: time }),
 ]);
 export const roomClientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({
@@ -70,6 +78,7 @@ export const roomErrorCodeSchema = z.enum([
   'rate-limit',
   'room-closed',
   'server-error',
+  'protocol-mismatch',
 ]);
 export const roomServerMessageSchema = z.union([
   roomSnapshotEventSchema,
@@ -98,6 +107,7 @@ export const roomConnectionStateSchema = z.strictObject({
   clockOffsetMs: z.number().finite(),
   rttMs: z.number().nonnegative().finite().nullable(),
   panelOpen: z.boolean(),
+  lastAck: z.strictObject({ eventId: id, revision: time }).nullable().default(null),
 });
 export const roomBridgeRequestSchema = z.discriminatedUnion('type', [
   z.strictObject({
@@ -112,7 +122,11 @@ export const roomBridgeRequestSchema = z.discriminatedUnion('type', [
     displayName: name,
     code: roomCodeSchema,
   }),
-  z.strictObject({ type: z.literal('command'), action: roomActionSchema }),
+  z.strictObject({
+    type: z.literal('command'),
+    commandId: id.optional(),
+    action: roomActionSchema,
+  }),
   z.strictObject({ type: z.literal('leave') }),
   z.strictObject({ type: z.literal('retry') }),
   z.strictObject({ type: z.literal('panel'), open: z.boolean() }),

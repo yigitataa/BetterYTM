@@ -68,6 +68,21 @@ export function seekablePosition(
   );
 }
 
+/** Visibility/inertness of a range input does not disable the native media API.
+ * Honor explicit host disabled state when a mapped control exists. */
+function seekDisabled(control: Element | null): boolean {
+  for (let node = control; node; node = node.parentElement) {
+    if (
+      node.hasAttribute('disabled') ||
+      node.getAttribute('aria-disabled') === 'true' ||
+      node.hasAttribute('readonly') ||
+      node.getAttribute('aria-readonly') === 'true'
+    )
+      return true;
+  }
+  return false;
+}
+
 export function canSeek(media: HTMLMediaElement | null, control: Element | null): boolean {
   return (
     !!media?.isConnected &&
@@ -76,7 +91,7 @@ export function canSeek(media: HTMLMediaElement | null, control: Element | null)
     Number.isFinite(media.duration) &&
     media.duration > 0 &&
     media.seekable.length > 0 &&
-    isUsableControl(control)
+    !seekDisabled(control)
   );
 }
 
@@ -90,10 +105,8 @@ export function seekMedia(
       'invalid-argument',
       'Seek position must be a finite non-negative number of seconds.',
     );
-  if (!control)
-    return failure('unsupported', 'Seeking needs a verified host seek-control mapping.');
-  if (!isUsableControl(control))
-    return failure('control-disabled', 'YouTube Music currently disables or hides seeking.');
+  if (seekDisabled(control))
+    return failure('control-disabled', 'YouTube Music currently disables seeking.');
   if (!canSeek(media, control) || !media)
     return failure('unavailable', 'The host media is not currently seekable.');
   try {

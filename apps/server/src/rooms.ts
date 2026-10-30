@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import {
+  ROOM_PROTOCOL_VERSION,
   roomClientMessageSchema,
   roomPosition,
   type RoomClientMessage,
@@ -80,7 +81,7 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
   function broadcast(room: Room, originClientId = 'server') {
     const state = snapshot(room);
     const event: RoomServerMessage = {
-      protocolVersion: 1,
+      protocolVersion: ROOM_PROTOCOL_VERSION,
       type: 'room.snapshot',
       eventId: randomUUID(),
       roomId: state.roomId,
@@ -200,6 +201,8 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
             code: newCode(),
             revision: 0,
             playbackEpoch: 0,
+            playbackRevision: 0,
+            controllerClientId: message.originClientId,
             serverTimeMs: now,
             hostClientId: message.originClientId,
             members: [],
@@ -259,6 +262,8 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
       if (member.clientId === room.state.hostClientId) endRoom(room);
       else {
         room.members.delete(member.clientId);
+        if (room.state.controllerClientId === member.clientId)
+          room.state.controllerClientId = room.state.hostClientId;
         room.state.revision++;
         broadcast(room, member.clientId);
       }
@@ -275,22 +280,86 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
       return;
     }
     const action = message.action;
-    const host = member.clientId === room.state.hostClientId;
-    if (action.type !== 'queue.add' && !host) {
-      error(socket, 'forbidden', 'Bu işlemi yalnızca oda sahibi yapabilir.', message.eventId);
+    const playbackAction = action.type.startsWith('playback.');
+    if (action.type === 'queue.next' && action.playbackRevision !== room.state.playbackRevision) {
+      error(
+        socket,
+        'conflict',
+        'Parça zaten değişti. Güncel oda durumunu kullan.',
+        message.eventId,
+      );
+      broadcast(room);
       return;
     }
     if (
+      !playbackAction &&
       action.type !== 'queue.add' &&
-      action.type !== 'playback.update' &&
+      action.type !== 'queue.next' &&
       message.baseRevision !== room.state.revision
     ) {
       error(socket, 'conflict', 'Oda güncellendi; güncel sırayla yeniden dene.', message.eventId);
       broadcast(room);
       return;
     }
-    if (action.type === 'playback.update') setPlayback(room, action.playback);
-    else if (action.type === 'queue.add') {
+    if (action.type === 'playback.update') {
+      if (
+        room.state.controllerClientId !== member.clientId ||
+        action.playbackRevision !== room.state.playbackRevision ||
+        action.playback.track?.videoId !== room.state.playback.track?.videoId ||
+        action.playback.playing !== room.state.playback.playing
+      ) {
+        error(
+          socket,
+          'conflict',
+          'Eski oynatıcı örneği reddedildi; oda yeniden eşitleniyor.',
+          message.eventId,
+        );
+        broadcast(room);
+        return;
+      }
+      const age = Date.now() - action.sampledAt;
+      if (age > 5000 || age < -5000) {
+        error(socket, 'conflict', 'Oynatıcı saat ölçümü güncel değil.', message.eventId);
+        broadcast(room);
+        return;
+      }
+      const elapsed = action.playback.playing ? Math.max(0, Math.min(2000, age)) : 0;
+      setPlayback(room, {
+        ...action.playback,
+        positionMs: Math.round(
+          Math.min(
+            action.playback.positionMs + elapsed,
+            action.playback.durationMs ?? Number.MAX_SAFE_INTEGER,
+          ),
+        ),
+      });
+    } else if (action.type === 'playback.set-playing') {
+      const current = snapshot(room).playback;
+      if (!current.track) {
+        error(socket, 'conflict', 'Önce bir parça seç veya ortak sıradan başlat.', message.eventId);
+        return;
+      }
+      setPlayback(room, { ...current, playing: action.playing });
+      room.state.controllerClientId = member.clientId;
+      room.state.playbackRevision++;
+    } else if (action.type === 'playback.seek') {
+      const current = snapshot(room).playback;
+      if (
+        !current.track ||
+        (current.durationMs !== null && action.positionMs > current.durationMs)
+      ) {
+        error(socket, 'invalid-message', 'Sarma konumu parçanın dışında.', message.eventId);
+        return;
+      }
+      setPlayback(room, { ...current, positionMs: action.positionMs });
+      room.state.controllerClientId = member.clientId;
+      room.state.playbackRevision++;
+    } else if (action.type === 'playback.set-track') {
+      setPlayback(room, action.playback);
+      room.state.controllerClientId = member.clientId;
+      room.state.playbackRevision++;
+      room.state.playbackEpoch++;
+    } else if (action.type === 'queue.add') {
       if (room.state.queue.length >= 200) {
         error(socket, 'full', 'Sırada en fazla 200 parça olabilir.', message.eventId);
         return;
@@ -310,6 +379,8 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
           : { ...current, playing: false },
       );
       room.state.playbackEpoch++;
+      room.state.playbackRevision++;
+      room.state.controllerClientId = member.clientId;
     } else {
       const index = room.state.queue.findIndex(({ id }) => id === action.entryId);
       if (index < 0) {
@@ -380,7 +451,21 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
         return;
       }
       try {
-        const parsed = !binary && roomClientMessageSchema.safeParse(JSON.parse(raw.toString()));
+        const input: unknown = binary ? null : JSON.parse(raw.toString());
+        if (
+          input &&
+          typeof input === 'object' &&
+          'protocolVersion' in input &&
+          input.protocolVersion !== ROOM_PROTOCOL_VERSION
+        ) {
+          error(
+            socket,
+            'protocol-mismatch',
+            'Sunucu ve eklenti sürümleri farklı. İki eklentiyi de güncelle.',
+          );
+          return;
+        }
+        const parsed = !binary && roomClientMessageSchema.safeParse(input);
         if (!parsed || !parsed.success) {
           error(socket, 'invalid-message', 'Geçersiz oda mesajı.');
           return;
@@ -426,6 +511,8 @@ export function attachRoomServer(server: Server, options: RoomServerOptions = {}
           now - member.disconnectedAt > grace
         ) {
           room.members.delete(member.clientId);
+          if (room.state.controllerClientId === member.clientId)
+            room.state.controllerClientId = room.state.hostClientId;
           changed = true;
         }
       if (changed) {

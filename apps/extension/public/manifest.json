@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Better YTM",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The foundation for a more personal YouTube Music experience.",
   "minimum_chrome_version": "116",
   "permissions": ["storage"],

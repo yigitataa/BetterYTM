@@ -7,7 +7,12 @@ import {
   videoIdFromWatchLink,
   watchUrlForVideoId,
 } from '../packages/ytm-adapter/dist/metadata.js';
-import { finiteMilliseconds, seekablePosition } from '../packages/ytm-adapter/dist/player.js';
+import {
+  canSeek,
+  finiteMilliseconds,
+  seekablePosition,
+  seekMedia,
+} from '../packages/ytm-adapter/dist/player.js';
 
 const base = 'https://music.youtube.com/';
 const emptyMetadata = { videoId: null, title: null, artist: null, artworkUrl: null };
@@ -90,6 +95,36 @@ test('seeking respects duration and seekable gaps', () => {
     assert.equal(seekablePosition(position, 100, ranges), false);
   assert.equal(seekablePosition(0, Infinity, ranges), false);
   assert.equal(seekablePosition(0, 100, []), false);
+});
+
+test('native media seeking works without a slider and while the player UI is inert or hidden', () => {
+  const media = {
+    isConnected: true,
+    readyState: 4,
+    error: null,
+    duration: 180,
+    currentTime: 0,
+    seekable: { length: 1, start: () => 0, end: () => 180 },
+  };
+  const control = {
+    parentElement: null,
+    hasAttribute: (name) => ['inert', 'hidden'].includes(name),
+    getAttribute: () => null,
+  };
+  for (const slider of [null, control]) {
+    assert.equal(canSeek(media, slider), true);
+    assert.deepEqual(seekMedia(media, slider, 73.25), { ok: true });
+    assert.equal(media.currentTime, 73.25);
+  }
+  const disabled = { ...control, hasAttribute: (name) => name === 'disabled' };
+  assert.equal(canSeek(media, disabled), false);
+  assert.equal(seekMedia(media, disabled, 30).error.code, 'control-disabled');
+  assert.equal(seekMedia(media, null, 181).error.code, 'invalid-argument');
+  assert.equal(
+    seekMedia({ ...media, seekable: { length: 0 } }, null, 30).error.code,
+    'unavailable',
+  );
+  assert.equal(media.currentTime, 73.25);
 });
 
 test('clock changes do not emit duplicate state, and observed seeks remain distinguishable', () => {

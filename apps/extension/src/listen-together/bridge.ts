@@ -24,6 +24,7 @@ export function createChromeRoomBridge(): RoomBridge {
     clockOffsetMs: 0,
     rttMs: null,
     panelOpen: false,
+    lastAck: null,
   };
   let port: chrome.runtime.Port | undefined;
   let active = false;

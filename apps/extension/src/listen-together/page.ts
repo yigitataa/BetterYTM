@@ -310,10 +310,9 @@ export function createListenTogetherPage(
         if (artwork.getAttribute('src') !== local.artworkUrl) artwork.src = local.artworkUrl;
         artwork.hidden = false;
       } else artwork.hidden = true;
-      sync.textContent = state.host
-        ? 'Oynatma kontrolü sende.'
-        : `Oynatma kontrolü oda sahibinde.${connection.rttMs !== null ? ` Bağlantı: ${Math.round(connection.rttMs)} ms.` : ''}`;
-      toggle.hidden = next.hidden = !state.host;
+      sync.textContent = `Oynatma kontrolü ortak.${connection.rttMs !== null ? ` Bağlantı: ${Math.round(connection.rttMs)} ms.` : ''}${state.driftMs !== null ? ` Konum farkı: ${Math.round(Math.abs(state.driftMs))} ms.` : ''}`;
+      toggle.hidden = next.hidden = false;
+      syncButton.textContent = state.autoplayBlocked ? 'Sesi etkinleştir' : 'Yeniden eşitle';
       toggle.textContent = room.playback.playing ? 'Duraklat' : 'Oynat';
       toggle.disabled = !connected || state.changingTrack || !track;
       next.disabled = !connected || state.changingTrack || !room.queue.length;
@@ -334,13 +333,13 @@ export function createListenTogetherPage(
             ),
             element(
               'small',
-              `${member.clientId === room.hostClientId ? 'Oda sahibi' : 'Dinleyici'}${member.connected ? '' : ' · Bağlantı kesildi'}`,
+              `${member.clientId === room.hostClientId ? 'Oda sahibi' : 'Katılımcı'}${member.connected ? '' : ' · Bağlantı kesildi'}`,
             ),
           );
           members.append(item);
         }
       }
-      const signature = JSON.stringify(room.queue) + state.host + connected;
+      const signature = JSON.stringify(room.queue) + connected;
       if (signature !== queueSignature) {
         queueSignature = signature;
         const focused = shadow.activeElement?.getAttribute('data-focus-key');
@@ -356,7 +355,7 @@ export function createListenTogetherPage(
             ),
           );
           row.append(info);
-          if (state.host) {
+          {
             const controls = element('div', '', 'queue-actions');
             for (const direction of ['up', 'down'] as const) {
               const move = button(direction === 'up' ? '↑' : '↓', () =>

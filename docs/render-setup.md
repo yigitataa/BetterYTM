@@ -22,7 +22,7 @@ bağlantısını destekler. `127.0.0.1` yerine yayınlanan sunucuda yeni oda olu
    Beklenen yanıt:
 
    ```json
-   { "status": "ok", "service": "better-ytm-server" }
+   { "status": "ok", "service": "better-ytm-server", "protocolVersion": 2 }
    ```
 
    Buradaki `abc` örnektir. Panelin verdiği adresi kullan. Ana sayfa `/` için
@@ -43,8 +43,8 @@ bağlantısını destekler. `127.0.0.1` yerine yayınlanan sunucuda yeni oda olu
 5. Arkadaşın bu yeni daveti kendi eklentisinde yapıştırıp **Odaya katıl**a bassın.
    Davet sunucu adresini de içerir. Yalnızca oda kodunu kullanırsa aynı WSS adresini
    onun da sunucu alanına girmesi gerekir.
-6. İki dinleyici göründükten sonra misafirden sıraya şarkı ekleyip host'tan
-   oynat/duraklat ve sıradakine geçişi kontrol edin.
+6. İki katılımcı göründükten sonra iki taraftan da oynat/duraklat, sarma ve
+   sıradakine geçişi kontrol edin. Her işlem diğer cihazda da uygulanmalı.
 
 Sunucu adresi eklenti build'ine gömülmez; bu kurulum için yeni bir eklenti derlemesi
 gerekmez. Bilgisayarındaki yerel sunucu terminalini kapatabilirsin; Render'daki
@@ -71,3 +71,10 @@ Resmî kaynaklar:
 [Free plan sınırları](https://render.com/docs/free),
 [WebSocket desteği](https://render.com/docs/websocket),
 [Blueprint kurulumu](https://render.com/docs/blueprint-spec).
+
+## Ortak kontrol düzeltmesini yayınlama
+
+Bu sürüm protokol **2** kullanır. Kaynak kod değişikliklerini GitHub’a gönderdikten
+sonra Render’da **Manual Deploy → Deploy latest commit** seç. `/health` yanıtında
+`protocolVersion: 2` görünmeli. İki bilgisayarda da güncel kodu derle, Chrome’dan
+eklentiyi yeniden yükle ve YouTube Music’i yenile. Eski oda yerine yeni oda aç.

@@ -280,13 +280,18 @@ class DOMYTMAdapter implements YTMAdapter {
     const previousMetadata = this.#previousMetadata;
     this.#previous = probe.snapshot;
     this.#previousMetadata = probe.metadata;
-    for (const type of changedPlaybackEvents(
+    const changed = changedPlaybackEvents(
       previous,
       probe.snapshot,
       causes.has('seeked'),
       previousMetadata,
       probe.metadata,
-    )) {
+    );
+    if (probe.snapshot && !probe.snapshot.ended) {
+      if (causes.has('pause') && !probe.snapshot.playing) changed.push('pause');
+      if (causes.has('play') && probe.snapshot.playing) changed.push('play');
+    }
+    for (const type of new Set(changed)) {
       if (!this.#initialized || this.#epoch !== epoch) return;
       this.#emit({ type, snapshot: probe.snapshot, metadata: probe.metadata });
     }

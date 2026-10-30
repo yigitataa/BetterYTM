@@ -46,7 +46,7 @@ async function setup(t, options = {}) {
       send(type, data = {}, eventId = randomUUID()) {
         socket.send(
           JSON.stringify({
-            protocolVersion: 1,
+            protocolVersion: 2,
             type,
             eventId,
             originClientId: id,
@@ -66,6 +66,14 @@ async function setup(t, options = {}) {
         throw new Error('Expected room message was not received.');
       },
       command(action, baseRevision = snapshot.revision, eventId) {
+        if (action.type === 'queue.next')
+          action = { playbackRevision: snapshot.playbackRevision, ...action };
+        if (action.type === 'playback.update')
+          action = {
+            playbackRevision: snapshot.playbackRevision,
+            sampledAt: Date.now(),
+            ...action,
+          };
         return this.send(
           'room.command',
           { roomId: snapshot.roomId, baseRevision, action },
@@ -79,7 +87,7 @@ async function setup(t, options = {}) {
   return { app, client, url };
 }
 
-test('two clients share queue, host controls playback, duplicate commands do not duplicate songs', async (t) => {
+test('both members control playback, queue transitions are ordered and duplicate commands stay idempotent', async (t) => {
   const { client } = await setup(t);
   const host = await client();
   host.send('room.create', { displayName: 'Host', playback });
@@ -92,15 +100,12 @@ test('two clients share queue, host controls playback, duplicate commands do not
   await host.wait((m) => m.type === 'room.snapshot' && m.snapshot.queue.length === 1);
   guest.command({ type: 'queue.add', track }, guest.snapshot.revision, addId);
   await guest.wait((m) => m.type === 'command.ack' && m.eventId === addId);
-  const forbiddenId = guest.command({
-    type: 'playback.update',
-    playback: { ...playback, playing: false },
-  });
-  await guest.wait(
-    (m) => m.type === 'room.error' && m.eventId === forbiddenId && m.code === 'forbidden',
-  );
+  const guestPause = guest.command({ type: 'playback.set-playing', playing: false });
+  await guest.wait((m) => m.type === 'command.ack' && m.eventId === guestPause);
+  await host.wait((m) => m.type === 'room.snapshot' && !m.snapshot.playback.playing);
+  assert.equal(host.snapshot.controllerClientId, guest.id);
   assert.equal(host.snapshot.queue.length, 1);
-  const stale = host.command({ type: 'queue.next' }, 0);
+  const stale = host.command({ type: 'queue.next', playbackRevision: 999 }, 0);
   await host.wait((m) => m.type === 'room.error' && m.eventId === stale && m.code === 'conflict');
   host.command({ type: 'queue.next' });
   await guest.wait(
@@ -110,15 +115,15 @@ test('two clients share queue, host controls playback, duplicate commands do not
   assert.equal(guest.snapshot.playback.playing, true);
   assert.equal(guest.snapshot.playbackEpoch, 1);
   const pause = host.command({
-    type: 'playback.update',
-    playback: { track, playing: false, positionMs: 2000, durationMs: 180000 },
+    type: 'playback.set-playing',
+    playing: false,
   });
   await host.wait((m) => m.type === 'command.ack' && m.eventId === pause);
   await guest.wait((m) => m.type === 'room.snapshot' && !m.snapshot.playback.playing);
-  assert.equal(guest.snapshot.playback.positionMs, 2000);
+  assert.equal(guest.snapshot.playback.playing, false);
 });
 
-test('only host can reorder or remove; repeated video IDs have distinct queue entries', async (t) => {
+test('members can reorder and remove shared queue entries', async (t) => {
   const { client } = await setup(t);
   const host = await client();
   host.send('room.create', { displayName: 'Host', playback });
@@ -131,19 +136,53 @@ test('only host can reorder or remove; repeated video IDs have distinct queue en
   guest.command({ type: 'queue.add', track: playback.track });
   await host.wait((m) => m.type === 'room.snapshot' && m.snapshot.queue.length === 2);
   const [first, second] = host.snapshot.queue;
-  const forbidden = guest.command({ type: 'queue.remove', entryId: first.id });
-  await guest.wait(
-    (m) => m.type === 'room.error' && m.eventId === forbidden && m.code === 'forbidden',
-  );
-  host.command({ type: 'queue.move', entryId: second.id, direction: 'up' });
+  guest.command({ type: 'queue.move', entryId: second.id, direction: 'up' });
   await guest.wait((m) => m.type === 'room.snapshot' && m.snapshot.queue[0]?.id === second.id);
-  host.command({ type: 'queue.remove', entryId: first.id });
+  guest.command({ type: 'queue.remove', entryId: first.id });
   await guest.wait(
     (m) =>
       m.type === 'room.snapshot' &&
       m.snapshot.queue.length === 1 &&
       m.snapshot.queue[0].id === second.id,
   );
+});
+
+test('late heartbeats cannot undo another participant and concurrent next advances only once', async (t) => {
+  const { client } = await setup(t);
+  const host = await client();
+  host.send('room.create', { displayName: 'Host', playback });
+  const welcome = await host.wait((m) => m.type === 'room.welcome');
+  const guest = await client();
+  guest.send('room.join', { displayName: 'Guest', code: welcome.snapshot.code });
+  await guest.wait((m) => m.type === 'room.welcome');
+  const previousRevision = host.snapshot.playbackRevision;
+  const seek = guest.command({ type: 'playback.seek', positionMs: 73000 });
+  await guest.wait((m) => m.type === 'command.ack' && m.eventId === seek);
+  const stale = host.command({
+    type: 'playback.update',
+    playback,
+    playbackRevision: previousRevision,
+  });
+  await host.wait((m) => m.type === 'room.error' && m.eventId === stale && m.code === 'conflict');
+  assert.ok(host.snapshot.playback.positionMs >= 73000);
+  guest.command({ type: 'queue.add', track });
+  await guest.wait((m) => m.type === 'room.snapshot' && m.snapshot.queue.length === 1);
+  guest.command({ type: 'queue.add', track: playback.track });
+  await guest.wait((m) => m.type === 'room.snapshot' && m.snapshot.queue.length === 2);
+  const revision = guest.snapshot.playbackRevision;
+  const first = guest.command({ type: 'queue.next', playbackRevision: revision });
+  const second = host.command({ type: 'queue.next', playbackRevision: revision });
+  await guest.wait((m) => m.type === 'command.ack' && m.eventId === first);
+  await host.wait((m) => m.type === 'room.error' && m.eventId === second && m.code === 'conflict');
+  assert.equal(host.snapshot.queue.length, 1);
+  assert.equal(host.snapshot.playback.track.videoId, track.videoId);
+});
+
+test('old clients receive an explicit protocol update error', async (t) => {
+  const { client } = await setup(t);
+  const old = await client();
+  old.send('room.create', { protocolVersion: 1, displayName: 'Old', playback });
+  await old.wait((m) => m.type === 'room.error' && m.code === 'protocol-mismatch');
 });
 
 test('resume requires secret credentials, preserves full room state, and replaces old sockets', async (t) => {

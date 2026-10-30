@@ -17,6 +17,8 @@ const room = {
   roomId: 'room_1',
   code: 'ABCDEFGH23',
   playbackEpoch: 0,
+  playbackRevision: 0,
+  controllerClientId: 'host_1',
   revision: 3,
   serverTimeMs: 10000,
   hostClientId: 'host_1',
@@ -78,7 +80,7 @@ test('room snapshots require unique members and a present host', () => {
 
 test('snapshot envelopes reject unsupported protocols and mismatched room revisions', () => {
   const event = {
-    protocolVersion: 1,
+    protocolVersion: 2,
     type: 'room.snapshot',
     eventId: 'event_1',
     roomId: 'room_1',
@@ -89,7 +91,7 @@ test('snapshot envelopes reject unsupported protocols and mismatched room revisi
   };
   assert.equal(roomSnapshotEventSchema.safeParse(event).success, true);
   for (const patch of [
-    { protocolVersion: 2 },
+    { protocolVersion: 999 },
     { roomId: 'room_2' },
     { revision: 4 },
     { token: 'secret' },

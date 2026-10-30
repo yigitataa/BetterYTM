@@ -1,8 +1,8 @@
 import { z } from 'zod/v3';
 import type { PlaybackSnapshot } from './playback.js';
 
-/** Versioned v1 wire contract. Runtime validation is shared by client and server. */
-export const ROOM_PROTOCOL_VERSION = 1;
+/** Versioned wire contract. Runtime validation is shared by client and server. */
+export const ROOM_PROTOCOL_VERSION = 2;
 const identifier = z
   .string()
   .min(1)
@@ -56,6 +56,8 @@ export const roomSnapshotSchema = z
     roomId: identifier,
     code: z.string().regex(/^[A-Z2-9]{10}$/),
     playbackEpoch: milliseconds,
+    playbackRevision: milliseconds,
+    controllerClientId: identifier,
     revision: milliseconds,
     serverTimeMs: milliseconds,
     hostClientId: identifier,
@@ -67,6 +69,11 @@ export const roomSnapshotSchema = z
     const members = new Set(room.members.map(({ clientId }) => clientId));
     if (members.size !== room.members.length)
       context.addIssue({ code: z.ZodIssueCode.custom, message: 'Duplicate room member.' });
+    if (!members.has(room.controllerClientId))
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Playback controller must be a room member.',
+      });
     if (!members.has(room.hostClientId))
       context.addIssue({ code: z.ZodIssueCode.custom, message: 'Host must be a room member.' });
     if (new Set(room.queue.map(({ id }) => id)).size !== room.queue.length)

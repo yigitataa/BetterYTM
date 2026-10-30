@@ -1,6 +1,7 @@
 import {
   DEFAULT_ROOM_SERVER,
   ROOM_PORT_NAME,
+  ROOM_PROTOCOL_VERSION,
   SETTINGS_STORAGE_KEY,
   clockSample,
   estimateClock,
@@ -83,6 +84,7 @@ export function registerRoomConnections() {
                 : DEFAULT_ROOM_SERVER,
             displayName: typeof value.displayName === 'string' ? value.displayName : '',
             panelOpen: value.panelOpen === true,
+            lastAck: null,
             snapshot: null,
             error: null,
             clockOffsetMs: 0,
@@ -121,7 +123,7 @@ export function registerRoomConnections() {
   }
   function envelope(session: Session) {
     return {
-      protocolVersion: 1 as const,
+      protocolVersion: ROOM_PROTOCOL_VERSION as typeof ROOM_PROTOCOL_VERSION,
       eventId: crypto.randomUUID(),
       originClientId: session.state.clientId,
       sentAt: Date.now(),
@@ -153,6 +155,7 @@ export function registerRoomConnections() {
     delete session.initial;
     stopSocket(session);
     session.state.snapshot = null;
+    session.state.lastAck = null;
     session.state.status = error ? 'error' : 'idle';
     session.state.error = error;
     void persist(session);
@@ -226,8 +229,10 @@ export function registerRoomConnections() {
       }
       const parsed = roomServerMessageSchema.safeParse(raw);
       if (!parsed.success) {
-        session.state.error = 'Sunucudan uyumsuz oda mesajı alındı.';
-        post(session);
+        clearRoom(
+          session,
+          'Sunucu ve eklenti protokolleri farklı. Render sunucusunu ve iki eklentiyi de güncelle.',
+        );
         return;
       }
       const message = parsed.data;
@@ -274,14 +279,23 @@ export function registerRoomConnections() {
         session.state.snapshot = message.snapshot;
         post(session);
       } else if (message.type === 'room.error') {
-        if (['room-closed', 'not-found', 'unauthorized'].includes(message.code))
+        if (
+          ['room-closed', 'not-found', 'unauthorized', 'protocol-mismatch'].includes(message.code)
+        )
           clearRoom(session, message.message);
-        else if (session.state.status !== 'connected') clearRoom(session, message.message);
+        else if (session.state.status !== 'connected')
+          clearRoom(
+            session,
+            message.code === 'invalid-message'
+              ? 'Sunucu ve eklenti protokolleri farklı olabilir. Render sunucusunu ve iki eklentiyi de güncelle.'
+              : message.message,
+          );
         else {
           session.state.error = message.message;
           post(session);
         }
       } else if (message.type === 'command.ack') {
+        session.state.lastAck = { eventId: message.eventId, revision: message.revision };
         session.state.error = null;
         post(session);
       }
@@ -352,12 +366,21 @@ export function registerRoomConnections() {
       post(session);
       return;
     }
+    session.state.error = null;
+    const action =
+      message.action.type === 'playback.update'
+        ? {
+            ...message.action,
+            sampledAt: Math.round(message.action.sampledAt + session.state.clockOffsetMs),
+          }
+        : message.action;
     const sent = send(session, {
       ...envelope(session),
       type: 'room.command',
+      ...(message.commandId ? { eventId: message.commandId } : {}),
       roomId: session.resume.roomId,
       baseRevision: session.state.snapshot?.revision ?? 0,
-      action: message.action,
+      action,
     });
     if (!sent) {
       session.state.error = 'İşlem gönderilemedi; yeniden bağlanmayı bekle.';

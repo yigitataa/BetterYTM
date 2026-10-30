@@ -1,6 +1,7 @@
 export interface HealthResponse {
   status: 'ok';
   service: 'better-ytm-server';
+  protocolVersion: number;
 }
 
 export * from './theme.js';
